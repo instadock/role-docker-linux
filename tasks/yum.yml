@@ -1,0 +1,60 @@
+---
+- name: Upgrade all packages to the latest version
+  yum:
+    name: '*'
+    state: latest
+
+- name: 'Configure SELinux'
+  selinux:
+    state: "{{ selinux_mode }}"
+    policy: "targeted"
+  register: selinux_result
+
+- name: 'Enable EPEL repository'
+  yum:
+    state: present
+    name:
+      - https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ansible_distribution_major_version}}.noarch.rpm
+
+- name: 'Yum Packages'
+  yum:
+    state: present
+    name:
+      - bash-completion
+      - curl
+      - git
+      - iptables-services
+      - jq
+      - net-tools
+      - nfs-utils
+      - openssh-clients
+      - openssh-server
+      - openssl
+      - python-setuptools
+      - python-virtualenv
+      - sudo
+      - tmux
+      - unzip
+      - vim
+      - wget
+      - yum-plugin-versionlock
+      - yum-utils
+
+- name: 'RHEL Specific Packages'
+  yum:
+    state: present
+    name:
+      # chrony needed since systemd-timesyncd is removed from RHEL systemd
+      - chrony
+  when: ansible_os_family == 'RedHat'
+
+- name: 'Check if reboot is needed'
+  shell: needs-restarting -r
+  register: reboot_required_shell
+  failed_when: false
+  changed_when: false
+
+- name: 'Reboot'
+  reboot:
+  when: reboot_required_shell.rc != 0 or selinux_result.reboot_required
+
